@@ -52,7 +52,7 @@ public class ECommerceApp {
         System.out.print("Choose: ");
     }
 
-    // 1
+   
     static void addProduct(){
         System.out.print("Product name: ");
         String name = sc.nextLine();
@@ -65,7 +65,7 @@ public class ECommerceApp {
         System.out.println("Added: " + p);
     }
 
-    // 2
+ 
     static void addCustomer(){
         System.out.print("Customer name: ");
         String name = sc.nextLine();
@@ -76,7 +76,7 @@ public class ECommerceApp {
         System.out.println("Added: " + c);
     }
 
-    // 3
+ 
     static void placeOrder(){
         if (customers.isEmpty() || products.isEmpty()) { System.out.println("Need at least one customer and one product."); return; }
         System.out.println("Select customer id:");
@@ -97,20 +97,20 @@ public class ECommerceApp {
             if (!pp.isPresent()){ System.out.println("Product not found"); continue; }
             System.out.print("Qty: "); int q = Integer.parseInt(sc.nextLine());
             if (q<=0){ System.out.println("Qty must be >0"); continue; }
-            // business rule: check stock
+  
             if (pp.get().getStock() < q) { System.out.println("Insufficient stock for product " + pp.get().getName()); continue; }
             o.addItem(new OrderItem(pp.get(), q));
             System.out.println("Added to order: " + pp.get().getName() + " x"+q);
         }
         if (o.getItems().isEmpty()){ System.out.println("No items added. Order cancelled."); return; }
-        // confirm order: decrease stock
+    
         boolean confirmed = o.confirmOrder();
         if (!confirmed){ System.out.println("Order confirmation failed due to stock change."); return; }
         orders.add(o);
         System.out.println("Order placed. Invoice:\n" + o.invoice());
     }
 
-    // 4
+   
     static void makePayment(){
         if (orders.isEmpty()){ System.out.println("No orders found."); return; }
         System.out.println("Orders:");
@@ -137,7 +137,7 @@ public class ECommerceApp {
         }
     }
 
-    // 5
+   
     static void shipOrder(){
         System.out.println("Orders:"); orders.forEach(System.out::println);
         System.out.print("Enter order id to ship: ");
@@ -155,7 +155,6 @@ public class ECommerceApp {
         } else System.out.println("Shipment failed.");
     }
 
-    // 6
     static void requestReturn(){
         if (orders.isEmpty()){ System.out.println("No orders."); return; }
         System.out.println("Orders:"); orders.forEach(System.out::println);
@@ -175,7 +174,7 @@ public class ECommerceApp {
         }
         if (retmap.isEmpty()){ System.out.println("No return items entered."); return; }
         ReturnRequest rr = new ReturnRequest(retSeq++, o, LocalDate.now());
-        // add items
+     
         for (Map.Entry<Integer,Integer> e: retmap.entrySet()){
             Product p = products.stream().filter(pr->pr.getId()==e.getKey()).findFirst().get();
             rr.addReturnItem(p, e.getValue());
@@ -184,7 +183,7 @@ public class ECommerceApp {
         returns.add(rr);
         if (approved){
             rr.setStatus(ReturnStatus.APPROVED);
-            // increase stock
+          
             rr.getReturnItems().forEach((prod,qty)-> prod.increaseStock(qty));
             System.out.println("Return approved. Stock updated.");
         } else {
@@ -199,7 +198,6 @@ public class ECommerceApp {
     }
 }
 
-// === Domain classes ===
 class Product {
     private int id;
     private String name;
@@ -252,11 +250,10 @@ class Order {
 
     public void addItem(OrderItem i){ items.add(i); }
 
-    // check stock again and reduce
+ 
     public boolean confirmOrder(){
-        // verify all stocks available
         for (OrderItem oi: items){ if (oi.getProduct().getStock() < oi.getQuantity()) return false; }
-        // reduce
+       
         for (OrderItem oi: items){ oi.getProduct().reduceStock(oi.getQuantity()); }
         return true;
     }
@@ -303,7 +300,6 @@ class GenericPayment extends Payment {
     public GenericPayment(int id, Order order, double amount){ super(id, order, amount); }
     @Override
     public boolean process(){
-        // very simple simulation: if amount>0 => success
         if (amount<=0) { status = PaymentStatus.FAILED; return false; }
         status = PaymentStatus.SUCCESS; return true;
     }
@@ -313,9 +309,8 @@ class CardPayment extends Payment {
     public CardPayment(int id, Order order, double amount){ super(id, order, amount); }
     @Override
     public boolean process(){
-        // simulate a card processing check
         if (amount <= 0) { status = PaymentStatus.FAILED; return false; }
-        // pretend network call -> success
+
         status = PaymentStatus.SUCCESS; return true;
     }
 }
@@ -327,7 +322,6 @@ class Shipment {
     public Shipment(int id, Order order){ this.id=id; this.order=order; }
     public int getId(){ return id; }
     public boolean ship(){
-        // business rule: order must be PAID
         if (order.getStatus() != OrderStatus.PAID) return false;
         status = ShipmentStatus.SHIPPED; shippedDate = LocalDate.now();
         return true;
@@ -338,7 +332,7 @@ enum ReturnStatus { REQUESTED, APPROVED, REJECTED }
 
 class ReturnRequest {
     private int id; private Order order; private LocalDate requestDate; private ReturnStatus status = ReturnStatus.REQUESTED;
-    // map product -> qty to return
+    
     private Map<Product, Integer> returnItems = new HashMap<>();
     public ReturnRequest(int id, Order order, LocalDate requestDate){ this.id=id; this.order=order; this.requestDate=requestDate; }
     public int getId(){ return id; }
@@ -348,18 +342,18 @@ class ReturnRequest {
     public void setStatus(ReturnStatus s){ this.status = s; }
 
     public boolean evaluate(){
-        // Rule: within RETURN_WINDOW_DAYS and qty <= purchased qty
+       
         long days = ChronoUnit.DAYS.between(order.getOrderDate(), requestDate);
         if (days > ECommerceApp.RETURN_WINDOW_DAYS) return false;
-        // verify quantities
+      
         for (Map.Entry<Product,Integer> e: returnItems.entrySet()){
             Product p = e.getKey(); int q = e.getValue();
             Optional<OrderItem> oi = order.getItems().stream().filter(it->it.getProduct().getId()==p.getId()).findFirst();
             if (!oi.isPresent()) return false;
             if (q > oi.get().getQuantity()) return false;
         }
-        // simple refund acceptance policy
         return true;
     }
 }
+
 
